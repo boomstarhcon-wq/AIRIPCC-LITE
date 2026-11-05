@@ -1,0 +1,64 @@
+# AirBeep
+
+> 🌍 **Languages:** [English](./README.md) | 简体中文
+
+AirBeep 是一款 iOS 工具，用于静音系统内置的通话录音提示音。先备份原始提示音，再将开始与结束提示音替换为等长静音，随时可从备份中恢复原音。
+
+
+## 功能特性
+
+- 独立操作：备份原始提示音、静音、恢复原音，不再有含义模糊的开关状态。
+- 修改前即可备份原音；备份会被保留且绝不会被覆盖。
+- 每次写入后都会进行文件回读校验。
+- 一键从本地备份恢复。
+- 高级设置提供自定义设备 IP 与实时网络接口列表，便于排查回环连接。
+- 支持英文与简体中文界面。
+
+## 工作原理
+
+AirBeep 会请求以下系统文件的容器级访问权限：
+
+- `/var/mobile/Library/CallServices/Greetings/default/StartDisclosureWithTone.m4a`
+- `/var/mobile/Library/CallServices/Greetings/default/StartDisclosure.caf`（并非所有 iOS 版本都存在，缺失时自动跳过）
+- `/var/mobile/Library/CallServices/Greetings/default/StopDisclosure.caf`
+
+替换文件基于 AirliftSilence 的静音资源，并保持原始时长。备份保存在应用 Documents 目录下的 `AirBeepBackups` 中。
+
+## 系统要求
+
+- 一台受支持的 iOS/iPadOS 系统的实体 iPhone 或 iPad：
+  - **iOS/iPadOS 18.0 – 27.2 B2** —— 之后的版本无法支持。
+- 本地构建需 Xcode 27 或更高版本。
+- 仓库提供的 GitHub Actions 工作流可在云端构建 unsigned IPA。
+
+> AirBeep 依赖非公开的系统行为，不同 iOS 版本之间兼容性可能发生变化。移除录音提示音可能影响对方是否收到“通话正在被录音”的通知。请在当地法律允许并取得必要同意的情况下使用本应用。
+
+## 构建
+
+打开 `airbeep.xcodeproj`，选择 `airbeep` target，设置你的签名团队，然后构建到实体设备。
+
+如需构建 unsigned IPA，请在 GitHub Actions 中运行 `Release unsigned IPA` 工作流。成品文件名为 `airbeep-v<version>-unsigned.ipa`。
+
+### 自构建连接地址
+
+`AIRLIFT_TARGET_HOST` 构建设置用于指定 LocalDevVPN 的 **Device IP**，默认值为 `10.7.0.1`。应用启动时统一设置该地址，连接检查和提示音读写共用同一配置；不再在文件操作前重置目标。
+
+修改此设置前，先用 `scripts/build-airlift-xcframework.sh` 重建仓库补丁对应的原生库，再进行 Release 构建，例如：
+
+```sh
+xcodebuild -project airbeep.xcodeproj -scheme airbeep \
+  -configuration Release -destination 'id=<设备 UDID>' \
+  DEVELOPMENT_TEAM=<签名团队> AIRLIFT_TARGET_HOST=<LocalDevVPN 的 Device IP> build
+```
+
+iOS 26.4 起，旧式 Lockdown 回环连接还受实际 Wi-Fi 网段检查限制。目标地址及 LocalDevVPN 的接口地址应按实际网络配置，不能只复制另一台设备的地址。使用已检查未占用的地址和精确路由，不要修改代理软件的整套分流配置。此设置只解决连接目标选择，不保证系统文件访问或提示音替换成功；更换 Wi-Fi 网段后需重新配置。
+
+## 致谢 / Credits
+
+- 感谢 [AirliftSilence](https://github.com/YiHoooong/AirliftSilence) 提供的静音音频资源与替换方案研究。
+- 感谢 [airlift](https://github.com/0xjohnnydev/airlift)（作者 0xjohnny）提供的 AirTraffic 与 Airlock 研究，其作为项目依赖被保留。
+- 感谢 [Placard](https://github.com/frs0n/placard) 的贡献者提供的原始 iOS 项目结构与容器访问实现。
+
+## 许可证 / License
+
+AirBeep 以 [GNU 通用公共许可证 v3.0](LICENSE) 发布。
