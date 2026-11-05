@@ -18,17 +18,31 @@ concurrency:
 jobs:
   release:
     if: github.ref_type == 'tag' || github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[release]')
-    runs-on: xcode-27
-    timeout-minutes: 30
+    runs-on: macos-latest
+    timeout-minutes: 45
 
     steps:
       - name: Check out source
-        uses: actions/checkout@v7
+        uses: actions/checkout@v4
 
       - name: Select Xcode
         uses: maxim-lobanov/setup-xcode@v1
         with:
-          xcode-version: "27.0"
+          # The project needs Xcode 16 or newer (objectVersion 90).
+          # latest-stable tracks whatever the runner image ships, so this
+          # keeps working when GitHub refreshes the macOS image.
+          xcode-version: "latest-stable"
+
+      - name: Show toolchain
+        run: |
+          xcodebuild -version
+          xcrun --sdk iphoneos --show-sdk-version
+          rustc --version || true
+          rustup --version || true
+
+      - name: Install Rust iOS targets
+        run: |
+          rustup target add aarch64-apple-ios aarch64-apple-ios-sim x86_64-apple-ios || true
 
       - name: Build patched AirliftFFI
         run: bash scripts/build-airlift-xcframework.sh
@@ -80,10 +94,10 @@ jobs:
         # workflow_dispatch deliberately excluded: a manual run only uploads
         # the unsigned-IPA artifact for testing, never publishes a release.
         if: github.ref_type == 'tag' || contains(github.event.head_commit.message, '[release]')
-        uses: softprops/action-gh-release@v3
+        uses: softprops/action-gh-release@v2
         with:
           tag_name: v${{ env.VERSION }}
-          name: AirBeep v${{ env.VERSION }}
+          name: AirIPCC Lite v${{ env.VERSION }}
           target_commitish: ${{ github.sha }}
           generate_release_notes: true
           fail_on_unmatched_files: true
